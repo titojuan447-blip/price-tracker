@@ -49,7 +49,7 @@ BullionVaultPriceRequester.prototype.processResponse = function (response, body)
 module.exports = {
     register: function () {
         var BullionVaultStreamer = Streamer(BullionVaultPriceRequester,
-                                            config.streaming.interval);
+                                            15000);
         Plugin_.register(BullionVaultPriceRequester, BullionVaultStreamer);
     }
 };
