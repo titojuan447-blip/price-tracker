@@ -1,43 +1,40 @@
-var config = require('../../config/config'),
-    messages = require('../../public/lib/messages.js'),
+var messages = require('../../public/lib/messages.js'),
     Plugin_ = require('../models/Plugin.js'),
     PriceRequester = require('../models/PriceRequester.js'),
     Streamer = require('../models/Streamer.js');
 
-function BinanceGoldPriceRequester(symbol, options) {
+function BullionVaultPriceRequester(symbol, options) {
     PriceRequester.call(this, symbol, options);
 }
 
-BinanceGoldPriceRequester.config = {
-    exchange: 'bullionvault', // Mantenemos el nombre para que tu API no cambie
-    symbol_map: { 
-        "XAUUSD" : "PAXGUSDT"
-    },
-    url_template: 'https://api.binance.com/api/v3/ticker/bookTicker?symbol=<<SYMBOL>>'
+// Forzamos la configuración para que ignore el símbolo externo y use Binance
+BullionVaultPriceRequester.config = {
+    exchange: 'bullionvault',
+    symbol_map: { "XAUUSD" : "PAXGUSDT" },
+    url_template: 'https://api.binance.com/api/v3/ticker/price?symbol=<<SYMBOL>>'
 };
 
-BinanceGoldPriceRequester.prototype = Object.create(PriceRequester.prototype);
-BinanceGoldPriceRequester.prototype.constructor = BinanceGoldPriceRequester;
+BullionVaultPriceRequester.prototype = Object.create(PriceRequester.prototype);
+BullionVaultPriceRequester.prototype.constructor = BullionVaultPriceRequester;
 
-BinanceGoldPriceRequester.prototype.processResponse = function (response, body) {
+BullionVaultPriceRequester.prototype.processResponse = function (response, body) {
     try {
         var data = JSON.parse(body);
-        if (data && data.bidPrice) {
-            var bid = parseFloat(data.bidPrice);
-            var ask = parseFloat(data.askPrice);
-
-            console.log("Binance Gold OK: " + bid);
-            return new messages.Symbol(this.getExchange(), this.symbol, bid, ask);
+        if (data && data.price) {
+            var price = parseFloat(data.price);
+            console.log("!!! PRECIO OBTENIDO: " + price);
+            // Devolvemos el mismo precio para compra y venta para asegurar que cargue
+            return new messages.Symbol(this.getExchange(), this.symbol, price, price);
         }
     } catch (e) {
-        console.log("Binance Gold Error: " + e.message);
+        console.log("Error en Plugin Gold: " + e.message);
     }
     return null;
 };
 
 module.exports = {
     register: function () {
-        var BinanceStreamer = Streamer(BinanceGoldPriceRequester, 5000); // Actualiza cada 5 segs
-        Plugin_.register(BinanceGoldPriceRequester, BinanceStreamer);
+        var BullionVaultStreamer = Streamer(BullionVaultPriceRequester, 10000);
+        Plugin_.register(BullionVaultPriceRequester, BullionVaultStreamer);
     }
 };
