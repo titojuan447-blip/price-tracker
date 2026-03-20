@@ -41,36 +41,39 @@ try {
 
 app.use(express.static(__dirname + '/public'));
 
+// RUTA CORREGIDA: Usa 'wss' y normaliza Texto
 app.get("/api/v1/symbols/:symbol/:exchange", function(req, res) {
-    var symbol = req.params.symbol,
-        exchange = req.params.exchange,
-        request = new messages.SymbolRequest(symbol, exchange);
-    var handler = new HTTPRequestHandler(ws);
+    var symbol = req.params.symbol.toUpperCase(); 
+    var exchange = req.params.exchange.toLowerCase();
+    
+    var request = new messages.SymbolRequest(symbol, exchange);
+    var handler = new HTTPRequestHandler(wss); // Corregido: antes decía 'ws'
     handler.handle(request, req, res);
 });
 
 app.get("/api/v1/symbols/:symbol/:exchange/series", function(req, res) {
-    var symbol = req.params.symbol,
-        exchange = req.params.exchange,
-        start = req.query.start,
-        end = req.query.end,
-        request = new messages.SeriesRequest(symbol, exchange, {
-            start: start,
-            end: end
-        });
-    var handler = new HTTPRequestHandler(ws);
+    var symbol = req.params.symbol.toUpperCase();
+    var exchange = req.params.exchange.toLowerCase();
+    var start = req.query.start;
+    var end = req.query.end;
+    
+    var request = new messages.SeriesRequest(symbol, exchange, {
+        start: start,
+        end: end
+    });
+    var handler = new HTTPRequestHandler(wss); // Corregido: antes decía 'ws'
     handler.handle(request, req, res);
 });
 
 app.get("/api/v1/symbols", function(req, res) {
     var request = new messages.SymbolsRequest();
-    var handler = new HTTPRequestHandler(ws);
+    var handler = new HTTPRequestHandler(wss);
     handler.handle(request, req, res);
 });
 
 app.get("/api/v1/exchanges", function(req, res) {
     var request = new messages.ExchangesRequest();
-    var handler = new HTTPRequestHandler(ws);
+    var handler = new HTTPRequestHandler(wss);
     handler.handle(request, req, res);
 });
 
@@ -79,6 +82,7 @@ server.listen(config.server.port);
 
 console.log('main: http server listening on %d', config.server.port);
 
+// Definición del servidor WebSocket
 var wss = new ws.Server({server: server});
 
 console.log('main: websocket server created');
@@ -89,4 +93,3 @@ wss.on('connection', function(ws) {
         handler.handle_message(message);
     });
 });
-
