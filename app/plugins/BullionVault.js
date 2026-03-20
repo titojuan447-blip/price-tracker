@@ -7,10 +7,11 @@ function BullionVaultPriceRequester(symbol, options) {
     PriceRequester.call(this, symbol, options);
 }
 
-// Forzamos la configuración para que ignore el símbolo externo y use Binance
 BullionVaultPriceRequester.config = {
     exchange: 'bullionvault',
-    symbol_map: { "XAUUSD" : "PAXGUSDT" },
+    symbol_map: { 
+        "XAUUSD" : "PAXGUSDT" 
+    },
     url_template: 'https://api.binance.com/api/v3/ticker/price?symbol=<<SYMBOL>>'
 };
 
@@ -22,8 +23,11 @@ BullionVaultPriceRequester.prototype.processResponse = function (response, body)
         var data = JSON.parse(body);
         if (data && data.price) {
             var price = parseFloat(data.price);
-            console.log("!!! PRECIO OBTENIDO: " + price);
-            // Devolvemos el mismo precio para compra y venta para asegurar que cargue
+            
+            // Log para verificar en Render que el dato está llegando
+            console.log("DATO OBTENIDO (Binance Gold): " + price);
+            
+            // Retornamos el objeto de símbolo con el precio actual
             return new messages.Symbol(this.getExchange(), this.symbol, price, price);
         }
     } catch (e) {
@@ -34,6 +38,7 @@ BullionVaultPriceRequester.prototype.processResponse = function (response, body)
 
 module.exports = {
     register: function () {
+        // Actualizamos cada 10 segundos
         var BullionVaultStreamer = Streamer(BullionVaultPriceRequester, 10000);
         Plugin_.register(BullionVaultPriceRequester, BullionVaultStreamer);
     }
