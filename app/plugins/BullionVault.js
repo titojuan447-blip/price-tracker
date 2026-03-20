@@ -9,37 +9,38 @@ function BullionVaultPriceRequester(symbol, options) {
 
 BullionVaultPriceRequester.config = {
     exchange: 'bullionvault',
-    symbol_map: { 
-        "XAUUSD" : "PAXGUSDT" 
-    },
+    symbol_map: { "XAUUSD" : "PAXGUSDT" },
     url_template: 'https://api.binance.com/api/v3/ticker/price?symbol=<<SYMBOL>>'
 };
 
 BullionVaultPriceRequester.prototype = Object.create(PriceRequester.prototype);
 BullionVaultPriceRequester.prototype.constructor = BullionVaultPriceRequester;
 
-BullionVaultPriceRequester.prototype.processResponse = function (response, body) {
-    try {
-        var data = JSON.parse(body);
-        if (data && data.price) {
-            var price = parseFloat(data.price);
-            
-            // Log para verificar en Render que el dato está llegando
-            console.log("DATO OBTENIDO (Binance Gold): " + price);
-            
-            // Retornamos el objeto de símbolo con el precio actual
-            return new messages.Symbol(this.getExchange(), this.symbol, price, price);
-        }
-    } catch (e) {
-        console.log("Error en Plugin Gold: " + e.message);
-    }
-    return null;
+// Sobrescribimos el método de solicitud para asegurar que use HTTPS correctamente en Node 14
+BullionVaultPriceRequester.prototype.doRequest = function () {
+    var self = this;
+    var https = require('https');
+    
+    https.get('https://api.binance.com/api/v3/ticker/price?symbol=PAXGUSDT', (res) => {
+        var body = '';
+        res.on('data', (d) => { body += d; });
+        res.on('end', () => {
+            try {
+                var data = JSON.parse(body);
+                var price = parseFloat(data.price);
+                if (price > 0) {
+                    var symbolObj = new messages.Symbol(self.getExchange(), self.symbol, price, price);
+                    self.emit('price', symbolObj);
+                    console.log("!!! ORO ACTUALIZADO: " + price);
+                }
+            } catch (e) { console.log("Err Oro JSON: " + e.message); }
+        });
+    }).on('error', (e) => { console.log("Err Oro HTTP: " + e.message); });
 };
 
 module.exports = {
     register: function () {
-        // Actualizamos cada 10 segundos
-        var BullionVaultStreamer = Streamer(BullionVaultPriceRequester, 10000);
+        var BullionVaultStreamer = Streamer(BullionVaultPriceRequester, 15000);
         Plugin_.register(BullionVaultPriceRequester, BullionVaultStreamer);
     }
 };
