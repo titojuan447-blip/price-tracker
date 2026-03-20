@@ -12,26 +12,32 @@ var config = require('./config/config.js'),
 var app = express(),
     registry = Registry.getInstance();
 
-var modules_dirs = ['./app/plugins/',
-                    './app/handlers/'];
+var modules_dirs = ['./app/plugins/', './app/handlers/'];
 
 // Force all dates to be handled in UTC:
 process.env.tz = 'UTC';
 
+// CARGA AUTOMÁTICA DE MÓDULOS
 modules_dirs.forEach(function (modules_dir) {
-    fs.readdir(modules_dir, function (err, files) {
-        var extension = '.js';
-
-        files.forEach(function (file) {
-            if (file.lastIndexOf(extension) !=
-                (file.length - extension.length))
-                return;
-
+    if (!fs.existsSync(modules_dir)) return;
+    var files = fs.readdirSync(modules_dir);
+    files.forEach(function (file) {
+        if (file.endsWith('.js')) {
             var module = require(modules_dir + file);
-            module.register();
-        });
+            if (module && typeof module.register === 'function') {
+                module.register();
+            }
+        }
     });
 });
+
+// CARGA FORZADA DEL ORO (Para asegurar que Render lo vea)
+try {
+    require('./app/plugins/BullionVault.js').register();
+    console.log('main: BullionVault plugin forced successfully');
+} catch (e) {
+    console.log('main: Error forcing BullionVault plugin: ' + e.message);
+}
 
 app.use(express.static(__dirname + '/public'));
 
@@ -78,17 +84,9 @@ var wss = new ws.Server({server: server});
 console.log('main: websocket server created');
 
 wss.on('connection', function(ws) {
-    console.log('WSServer: websocket connection open');
-
     var handler = new WSClientHandler(ws);
-
     ws.on('message', function(message) {
-        console.log("WSServer: message received: " + message);
         handler.handle_message(message);
-    });
-
-    ws.on('close', function() {
-        console.log('WSServer: websocket connection close');
     });
 });
 
