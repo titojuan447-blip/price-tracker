@@ -24,11 +24,25 @@ BullionVaultPriceRequester.config = {
 BullionVaultPriceRequester.prototype = Object.create(PriceRequester.prototype);
 BullionVaultPriceRequester.prototype.constructor = BullionVaultPriceRequester;
 
+// Añadimos User-Agent para evitar bloqueos
+BullionVaultPriceRequester.prototype.getOptions = function() {
+    return {
+        headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+        }
+    };
+};
+
 BullionVaultPriceRequester.prototype.processResponse = function (response, body) {
-    var $ = cheerio.load(body, { xmlMode: true }),
-        get_price = function(op) {
+    try {
+        var $ = cheerio.load(body, { xmlMode: true });
+        
+        var get_price = function(op) {
             var prices = [];
-            $(op + "Prices > price").each(function(index, elem){
+            // BullionVault usa tags como <sellPrices> y <price limit="..."/>
+            var tag = op === "buy" ? "buyPrices" : "sellPrices";
+            
+            $(tag + " price").each(function(i, elem) {
                 if (elem.attribs && elem.attribs.limit) {
                     prices.push(parseFloat(elem.attribs.limit));
                 }
@@ -36,19 +50,24 @@ BullionVaultPriceRequester.prototype.processResponse = function (response, body)
 
             if (prices.length === 0) return 0;
 
-            var pricePerKilo = (op === "buy" ? Math.max.apply(null, prices) : Math.min.apply(null, prices));
-            return pricePerKilo / 32.1507;
-        },
-        bid = get_price("buy"),
-        ask = get_price("sell");
-    
-    if (bid === 0 || isNaN(bid)) {
-        console.log("BullionVault: Error al extraer precio para " + this.symbol);
-    } else {
-        console.log("BullionVault: Precio actualizado para " + this.symbol + " -> " + bid);
+            // Oro: precio por Kilo / 32.1507 = Onza
+            var val = (op === "buy" ? Math.max(...prices) : Math.min(...prices));
+            return val / 32.1507;
+        };
+
+        var bid = get_price("buy");
+        var ask = get_price("sell");
+
+        if (bid > 0) {
+            console.log("BullionVault OK: " + this.symbol + " -> " + bid);
+            return new messages.Symbol(this.getExchange(), this.symbol, bid, ask);
+        } else {
+            console.log("BullionVault: XML recibido pero sin precios para " + this.symbol);
+        }
+    } catch (e) {
+        console.log("BullionVault: Error procesando XML: " + e.message);
     }
-    
-    return new messages.Symbol(this.getExchange(), this.symbol, bid, ask);
+    return null;
 };
 
 module.exports = {
